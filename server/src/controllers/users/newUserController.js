@@ -1,5 +1,6 @@
 import randomstring from "randomstring";
-import sendMailService from "../../services/sendMailService.js";
+import sendMailService from "../../services/emailService.js";
+import { insertUserModel } from "../../models/users/index.js";
 import { FRONTEND_URL } from "../../../env.js";
 
 const newUserController = async (req, res, next) => {
@@ -21,6 +22,7 @@ const newUserController = async (req, res, next) => {
 		await sendMailService(email, emailSubject, emailBody);
 		await insertUserModel(username, email, password, registrationCode);
 		res.send({
+			status: "ok",
 			message: "Usuario registrado. Por favor, revisa tu email para activar tu cuenta",
 			data: {
 				username,
