@@ -36,7 +36,7 @@ const createTables = async () => {
 			avatar VARCHAR(100),
 			role ENUM('user', 'admin') DEFAULT 'user',
 			registrationCode CHAR(30),
-			verified BOOLEAN DEFAULT false,
+			active BOOLEAN DEFAULT false,
 			recoverPassCode CHAR(10),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );`);

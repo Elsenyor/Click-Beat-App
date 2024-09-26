@@ -22,11 +22,11 @@ export const invalidCredentialsError = () => {
 	};
 };
 
-export const pendingActivationError = () => {
+export const inactiveUserError = () => {
 	throw {
 		httpStatus: 403, // Forbidden
 		code: "PENDING_ACTIVATION",
-		message: "Usuario pendiente de activar. Por favor, verifica tu cuenta antes de continuar.",
+		message: "Usuario pendiente de activar. Por favor, activa tu cuenta antes de continuar.",
 	};
 };
 
