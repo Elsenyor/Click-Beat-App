@@ -14,6 +14,6 @@ router.get("/api/users", authUserMiddleware, userListController);
 
 router.get("/api/users/profile", authUserMiddleware, getOwnUserController);
 
-// router.post("/api/users/password-recovery", passwordRecoveryController);
+router.post("/api/users/password-recovery", passwordRecoveryController);
 
 export default router;
