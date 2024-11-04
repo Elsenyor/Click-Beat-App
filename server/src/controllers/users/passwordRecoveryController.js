@@ -14,7 +14,6 @@ const passwordRecoveryController = async (req, res, next) => {
     
     Haz click para <a href="${FRONTEND_URL}/reset/password/${recoverPassCode}">Recuperar contraseña</a>
 
-    Si no has sido tú ignora este email.
 
     Saludos,
   `;
