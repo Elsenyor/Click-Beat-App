@@ -1,11 +1,13 @@
 import randomstring from "randomstring";
 import sendMailService from "../../services/emailService.js";
+import validateSchema from "../../services/validateSchemaService.js";
+import { newUserSchema } from "../../schemas/users/index.js";
 import { insertUserModel } from "../../models/users/index.js";
 import { FRONTEND_URL } from "../../../env.js";
 
 const newUserController = async (req, res, next) => {
 	try {
-		// validate Schema Joi (o similar)
+		await validateSchema(newUserSchema, req.body);
 		const { username, email, password } = req.body;
 
 		const registrationCode = randomstring.generate(30);
