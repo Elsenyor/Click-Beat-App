@@ -6,6 +6,7 @@ import {
 	userListController,
 	getOwnUserController,
 	passwordRecoveryController,
+	editPasswordController,
 } from "../controllers/users/index.js";
 import { authUserMiddleware } from "../middlewares/index.js";
 
@@ -22,5 +23,7 @@ router.get("/api/users", authUserMiddleware, userListController);
 router.get("/api/users/profile", authUserMiddleware, getOwnUserController);
 
 router.post("/api/users/password-recovery", passwordRecoveryController);
+
+router.put("/api/users/password-change", authUserMiddleware, editPasswordController);
 
 export default router;
