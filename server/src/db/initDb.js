@@ -39,7 +39,7 @@ const createTables = async () => {
 			active BOOLEAN DEFAULT false,
 			recoverPassCode CHAR(10),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);`);
+)`);
 
 		await pool.query(`
             CREATE TABLE IF NOT EXISTS tracks (
@@ -53,14 +53,63 @@ const createTables = async () => {
     		FOREIGN KEY (user_id) REFERENCES users(id)
 )`);
 		await pool.query(`
+			CREATE TABLE IF NOT EXISTS trackFiles (
+			id BIGINT AUTO_INCREMENT PRIMARY KEY,
+			track_id BIGINT,
+			audio_file TEXT NOT NULL,
+			photo_file TEXT NOT NULL,
+			video_file TEXT,
+			FOREIGN KEY (track_id) REFERENCES tracks(id)
+)`);
+		await pool.query(`
+			CREATE TABLE IF NOT EXISTS genres (
+			id BIGINT AUTO_INCREMENT PRIMARY KEY,
+			name VARCHAR(100) NOT NULL
+)`);
+		await pool.query(`
+			CREATE TABLE IF NOT EXISTS track_genres (
+			track_id BIGINT,
+			genre_id BIGINT,
+			PRIMARY KEY (track_id, genre_id),
+			FOREIGN KEY (track_id) REFERENCES tracks(id),
+			FOREIGN KEY (genre_id) REFERENCES genres(id)
+)`);
+
+		await pool.query(`
+			CREATE TABLE IF NOT EXISTS playlist_genres (
+        	playlist_id BIGINT,
+        	genre_id BIGINT,
+        	PRIMARY KEY (playlist_id, genre_id),
+        	FOREIGN KEY (playlist_id) REFERENCES playlists(id),
+        	FOREIGN KEY (genre_id) REFERENCES genres(id)
+)`);
+
+		await pool.query(`
             CREATE TABLE IF NOT EXISTS playlists (
     		id BIGINT AUTO_INCREMENT PRIMARY KEY,
     		user_id BIGINT,
     		name VARCHAR(100) NOT NULL,
-    		visibility VARCHAR(100) NOT NULL DEFAULT 'public',
+    		visibility ENUM('public', 'private') NOT NULL DEFAULT 'public',
     		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     		FOREIGN KEY (user_id) REFERENCES users(id)
 )`);
+		await pool.query(`
+            CREATE TABLE IF NOT EXISTS playlist_tracks (
+			playlist_id BIGINT,
+			track_id BIGINT,
+			position INT DEFAULT NULL,
+			added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (playlist_id, track_id),
+			FOREIGN KEY (playlist_id) REFERENCES playlists(id),
+			FOREIGN KEY (track_id) REFERENCES tracks(id)
+)`);
+		// Crear índices individuales
+		await pool.query(`
+            CREATE INDEX idx_playlist_tracks_playlist_id ON playlist_tracks(playlist_id);
+        `);
+		await pool.query(`
+            CREATE INDEX idx_playlist_tracks_track_id ON playlist_tracks(track_id);
+        `);
 
 		await pool.query(`
             CREATE TABLE IF NOT EXISTS comments (
@@ -93,15 +142,24 @@ const createTables = async () => {
 			FOREIGN KEY (user_id) REFERENCES users(id),
 			FOREIGN KEY (track_id) REFERENCES tracks(id)
 )`);
+		// Crear trigger para validar visibilidad (opcional)
 		await pool.query(`
-            CREATE TABLE IF NOT EXISTS playlist_tracks (
-			playlist_id BIGINT,
-			track_id BIGINT,
-			added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY (playlist_id, track_id),
-			FOREIGN KEY (playlist_id) REFERENCES playlists(id),
-			FOREIGN KEY (track_id) REFERENCES tracks(id)
-)`);
+            CREATE TRIGGER validate_visibility BEFORE INSERT ON playlist_tracks
+            FOR EACH ROW
+            BEGIN
+                DECLARE playlist_visibility ENUM('public', 'private');
+                DECLARE track_visibility ENUM('public', 'private');
+
+                SELECT visibility INTO playlist_visibility FROM playlists WHERE id = NEW.playlist_id;
+                SELECT visibility INTO track_visibility FROM tracks WHERE id = NEW.track_id;
+
+                IF playlist_visibility = 'private' AND track_visibility = 'public' THEN
+                    SIGNAL SQLSTATE '45000'
+                    SET MESSAGE_TEXT = 'Public tracks cannot be added to private playlists.';
+                END IF;
+            END;
+        `);
+
 		console.log("Tables created!");
 		process.exit(0);
 	} catch (err) {
