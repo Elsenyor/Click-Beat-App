@@ -1,4 +1,5 @@
 import randomstring from "randomstring";
+import uuid4 from "uuid4";
 import sendMailService from "../../services/emailService.js";
 import validateSchema from "../../services/validateSchemaService.js";
 import { newUserSchema } from "../../schemas/users/index.js";
@@ -11,6 +12,7 @@ const newUserController = async (req, res, next) => {
 		const { username, email, password } = req.body;
 
 		const registrationCode = randomstring.generate(30);
+		const userId = uuid4();
 
 		const emailSubject = "Activa tu cuenta en Click & Beats";
 		const emailBody = `¡Hola ${username}!
@@ -22,7 +24,7 @@ const newUserController = async (req, res, next) => {
         <a href="${FRONTEND_URL}/auth/activate/${registrationCode}">Activar mi cuenta</a>`;
 
 		await sendMailService(email, emailSubject, emailBody);
-		await insertUserModel(username, email, password, registrationCode);
+		await insertUserModel(username, email, password, registrationCode, userId);
 		res.send({
 			status: "ok",
 			message: "Usuario registrado. Por favor, revisa tu email para activar tu cuenta",

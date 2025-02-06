@@ -8,7 +8,7 @@ const validateUserModel = async (registrationCode) => {
 
 	users.length < 1 && notFoundError("usuario");
 
-	await pool.query("UPDATE users SET verified = true, registrationCode = null WHERE registrationCode = ?", [registrationCode]);
+	await pool.query("UPDATE users SET active = true, registrationCode = null WHERE registrationCode = ?", [registrationCode]);
 };
 
 export default validateUserModel;
