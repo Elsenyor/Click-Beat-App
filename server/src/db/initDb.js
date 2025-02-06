@@ -19,17 +19,46 @@ const createDatabase = async () => {
 	}
 };
 
+const createMediaTypes = async (pool) => {
+	await pool.query(`
+        CREATE TABLE IF NOT EXISTS mediaTypes (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            type VARCHAR(50) NOT NULL,
+            subtype VARCHAR(50) NOT NULL,
+            mimeType VARCHAR(100) NOT NULL UNIQUE
+        )
+    `);
+
+	await pool.query(`
+        INSERT IGNORE INTO mediaTypes (type, subtype, mimeType)
+        VALUES
+        ('audio', 'mpeg', 'audio/mpeg'),
+        ('audio', 'wav', 'audio/wav'),
+		('audio', 'mp3', 'audio/mp3'),
+        ('video', 'mp4', 'video/mp4'),
+        ('video', 'webm', 'video/webm'),
+        ('image', 'jpeg', 'image/jpeg'),
+        ('image', 'png', 'image/png'),
+        ('application', 'json', 'application/json')
+    `);
+
+	console.log("mediaTypes table and initial values created!");
+};
+
 const createTables = async () => {
 	try {
 		await createDatabase();
 		const pool = await getPool();
-		await pool.query("DROP TABLE IF EXISTS users, tracks, playlists, comments, followers, likes, playlist_tracks;");
+		await createMediaTypes(pool);
+		await pool.query(
+			"DROP TABLE IF EXISTS likes, follower, comments, playlist_tracks, playlist_genres, track_genres, genres, trackFiles, playlist, tracks, users"
+		);
 
 		console.log("Creating tables...");
 
 		await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
-            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            id CHAR(36) PRIMARY KEY,
             username VARCHAR(60) NOT NULL UNIQUE,
             email VARCHAR(60) NOT NULL UNIQUE,
             password VARCHAR(60) NOT NULL,
@@ -43,32 +72,63 @@ const createTables = async () => {
 
 		await pool.query(`
             CREATE TABLE IF NOT EXISTS tracks (
-    		id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    		user_id BIGINT,
+    		id CHAR(36) PRIMARY KEY,
+    		user_id CHAR(36),
     		title VARCHAR(100) NOT NULL,
     		description VARCHAR(100),
-    		audio_file TEXT NOT NULL,
     		visibility ENUM('public', 'private') NOT NULL DEFAULT 'public',
     		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     		FOREIGN KEY (user_id) REFERENCES users(id)
 )`);
 		await pool.query(`
-			CREATE TABLE IF NOT EXISTS trackFiles (
-			id BIGINT AUTO_INCREMENT PRIMARY KEY,
-			track_id BIGINT,
-			audio_file TEXT NOT NULL,
-			photo_file TEXT NOT NULL,
-			video_file TEXT,
-			FOREIGN KEY (track_id) REFERENCES tracks(id)
+            CREATE TABLE IF NOT EXISTS playlists (
+    		id BIGINT PRIMARY KEY,
+    		user_id CHAR(36),
+    		name VARCHAR(100) NOT NULL,
+    		visibility ENUM('public', 'private') NOT NULL DEFAULT 'public',
+    		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    		FOREIGN KEY (user_id) REFERENCES users(id)
 )`);
+		await pool.query(`
+            CREATE TABLE IF NOT EXISTS track_audio (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            track_id CHAR(36),
+            audio_file TEXT NOT NULL,
+            mediaType_id BIGINT,
+            FOREIGN KEY (track_id) REFERENCES tracks(id),
+            FOREIGN KEY (mediaType_id) REFERENCES mediaTypes(id)
+            )
+        `);
+		await pool.query(`
+            CREATE TABLE IF NOT EXISTS track_photo (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            track_id CHAR(36),
+            photo_file TEXT NOT NULL,
+            mediaType_id BIGINT,
+            FOREIGN KEY (track_id) REFERENCES tracks(id),
+            FOREIGN KEY (mediaType_id) REFERENCES mediaTypes(id)
+            )
+        `);
+		await pool.query(`
+            CREATE TABLE IF NOT EXISTS track_video (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            track_id CHAR(36),
+            video_file TEXT NOT NULL,
+            mediaType_id BIGINT,
+            FOREIGN KEY (track_id) REFERENCES tracks(id),
+            FOREIGN KEY (mediaType_id) REFERENCES mediaTypes(id)
+            )
+        `);
+
 		await pool.query(`
 			CREATE TABLE IF NOT EXISTS genres (
 			id BIGINT AUTO_INCREMENT PRIMARY KEY,
 			name VARCHAR(100) NOT NULL
 )`);
+
 		await pool.query(`
 			CREATE TABLE IF NOT EXISTS track_genres (
-			track_id BIGINT,
+			track_id CHAR(36),
 			genre_id BIGINT,
 			PRIMARY KEY (track_id, genre_id),
 			FOREIGN KEY (track_id) REFERENCES tracks(id),
@@ -85,25 +145,16 @@ const createTables = async () => {
 )`);
 
 		await pool.query(`
-            CREATE TABLE IF NOT EXISTS playlists (
-    		id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    		user_id BIGINT,
-    		name VARCHAR(100) NOT NULL,
-    		visibility ENUM('public', 'private') NOT NULL DEFAULT 'public',
-    		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    		FOREIGN KEY (user_id) REFERENCES users(id)
-)`);
-		await pool.query(`
             CREATE TABLE IF NOT EXISTS playlist_tracks (
 			playlist_id BIGINT,
-			track_id BIGINT,
+			track_id CHAR(36),
 			position INT DEFAULT NULL,
 			added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (playlist_id, track_id),
 			FOREIGN KEY (playlist_id) REFERENCES playlists(id),
 			FOREIGN KEY (track_id) REFERENCES tracks(id)
 )`);
-		// Crear índices individuales
+		// Indexes
 		await pool.query(`
             CREATE INDEX idx_playlist_tracks_playlist_id ON playlist_tracks(playlist_id);
         `);
@@ -114,8 +165,8 @@ const createTables = async () => {
 		await pool.query(`
             CREATE TABLE IF NOT EXISTS comments (
     		id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    		user_id BIGINT,
-    		track_id BIGINT,
+    		user_id CHAR(36),
+    		track_id CHAR(36),
     		content VARCHAR(100) NOT NULL,
     		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     		FOREIGN KEY (user_id) REFERENCES users(id),
@@ -125,8 +176,8 @@ const createTables = async () => {
 		await pool.query(`
             CREATE TABLE IF NOT EXISTS followers (
     		id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    		follower_id BIGINT,
-    		followed_id BIGINT,
+    		follower_id CHAR(36),
+    		followed_id CHAR(36),
     		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     		FOREIGN KEY (follower_id) REFERENCES users(id),
     		FOREIGN KEY (followed_id) REFERENCES users(id)
@@ -136,13 +187,13 @@ const createTables = async () => {
             CREATE TABLE IF NOT EXISTS likes (
 			id BIGINT AUTO_INCREMENT PRIMARY KEY,
 			value TINYINT UNSIGNED NOT NULL,
-			user_id BIGINT,
-			track_id BIGINT,
+			user_id CHAR(36),
+			track_id CHAR(36),
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (user_id) REFERENCES users(id),
 			FOREIGN KEY (track_id) REFERENCES tracks(id)
 )`);
-		// Crear trigger para validar visibilidad (opcional)
+		// Visibility validation trigger
 		await pool.query(`
             CREATE TRIGGER validate_visibility BEFORE INSERT ON playlist_tracks
             FOR EACH ROW

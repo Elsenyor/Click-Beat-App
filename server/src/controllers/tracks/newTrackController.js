@@ -1,24 +1,23 @@
 import uuid4 from "uuid4";
+import { newTrackModel, insertGenreModel, insertFileModel } from "../../models/tracks/index.js";
 
 const newTrackController = async (req, res, next) => {
 	try {
 		//Schema validation
 		//await validateSchema(newTrackSchema, req.body);
-		const { title, description, genre } = req.body;
+		const { title, description, genreId } = req.body;
 		const userId = req.user.id;
 		const trackId = uuid4();
 
-		await insertTrackModel(trackId, userId, title, description);
+		await newTrackModel(trackId, userId, title, description);
 
-		let files = [];
+		await insertGenreModel(genreId, trackId);
 
-		if (req.files) {
-			// If there are audio and photo files must separate them to store them in different collections
-			files = req.files;
+		const audioFile = req.files.audio;
+		const photoFile = req.files.photo;
+		const videoFile = req.files.video || null;
 
-			const audioFile = files.find((file) => file.fieldname === "audio");
-			const photoFile = files.find((file) => file.fieldname === "photo");
-		}
+		await insertFileModel(audioFile, photoFile, videoFile, trackId);
 	} catch (err) {
 		console.log(err);
 		next(err);
